@@ -2,6 +2,12 @@
 
 Lokální viewer pro čtení a procházení VS Code Copilot Chat sessions z lokálních transcript/debug JSONL souborů.
 
+## Ukázka rozhraní
+
+![Seznam sessions](docs/CleanShot%202026-06-09%20at%2007.34.52@2x.png)
+
+![Detail session](docs/CleanShot%202026-06-09%20at%2007.35.05@2x.png)
+
 ## Disclaimer
 
 - Toto je draft aplikace publikovaný jako výchozí bod pro další úpravy.
