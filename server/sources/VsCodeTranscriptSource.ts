@@ -583,7 +583,7 @@ export class VsCodeTranscriptSource implements SessionSource {
           const agentsText = agentsMatch[1];
           const agentEntries = agentsText.matchAll(/<agent>[\s\S]*?<name>([\s\S]*?)<\/name>[\s\S]*?<description>([\s\S]*?)<\/description>[\s\S]*?<\/agent>/g);
           for (const m of agentEntries) {
-            agents.push({ name: m[1].trim(), description: m[2].trim() });
+            agents.push({ name: m[1].trim(), description: m[2].trim(), sizeBytes: m[0].length });
           }
         }
       } catch {
@@ -633,6 +633,10 @@ export class VsCodeTranscriptSource implements SessionSource {
       maxContextTokens,
       model,
     };
+
+    skills.sort((a, b) => b.sizeBytes - a.sizeBytes || a.name.localeCompare(b.name));
+    agents.sort((a, b) => b.sizeBytes - a.sizeBytes || a.name.localeCompare(b.name));
+    tools.sort((a, b) => b.sizeBytes - a.sizeBytes || a.name.localeCompare(b.name));
 
     return { skills, agents, tools, contextSizes };
   }

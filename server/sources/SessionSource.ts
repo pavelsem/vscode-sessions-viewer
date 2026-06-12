@@ -68,6 +68,7 @@ export interface SkillInfo {
 export interface AgentInfo {
   name: string;
   description: string;
+  sizeBytes: number;
 }
 
 export interface ToolInfo {

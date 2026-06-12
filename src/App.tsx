@@ -70,6 +70,7 @@ interface SkillInfo {
 interface AgentInfo {
   name: string;
   description: string;
+  sizeBytes: number;
 }
 
 interface ToolInfo {
@@ -758,10 +759,16 @@ function StateMessage({ title, detail }: { title: string; detail: string }) {
   );
 }
 
-const TOOLS_PREVIEW_COUNT = 4;
+const OVERVIEW_PREVIEW_COUNT = 5;
 
 function SessionOverviewPanel({ overview }: { overview: SessionOverview }) {
+  const [skillsExpanded, setSkillsExpanded] = useState(false);
+  const [agentsExpanded, setAgentsExpanded] = useState(false);
   const [toolsExpanded, setToolsExpanded] = useState(false);
+  const visibleSkills = skillsExpanded ? overview.skills : overview.skills.slice(0, OVERVIEW_PREVIEW_COUNT);
+  const hiddenSkillsCount = overview.skills.length - OVERVIEW_PREVIEW_COUNT;
+  const visibleAgents = agentsExpanded ? overview.agents : overview.agents.slice(0, OVERVIEW_PREVIEW_COUNT);
+  const hiddenAgentsCount = overview.agents.length - OVERVIEW_PREVIEW_COUNT;
   const mcpTools = overview.tools.filter((t) => t.isMcp);
   const builtinTools = overview.tools.filter((t) => !t.isMcp);
   const mcpServers = [...new Set(mcpTools.map((t) => t.mcpServer ?? 'unknown'))];
@@ -770,43 +777,64 @@ function SessionOverviewPanel({ overview }: { overview: SessionOverview }) {
       ? builtinTools.reduce((s, t) => s + t.sizeBytes, 0)
       : mcpTools.filter((t) => (t.mcpServer ?? 'unknown') === server).reduce((s, t) => s + t.sizeBytes, 0);
   const allServers = [...mcpServers, ...(builtinTools.length > 0 ? ['__builtin__'] : [])].sort(
-    (a, b) => getServerBytes(b) - getServerBytes(a)
+    (a, b) => getServerBytes(b) - getServerBytes(a) || a.localeCompare(b)
   );
-  const visibleServers = toolsExpanded ? allServers : allServers.slice(0, TOOLS_PREVIEW_COUNT);
-  const hiddenCount = allServers.length - TOOLS_PREVIEW_COUNT;
+  const visibleServers = toolsExpanded ? allServers : allServers.slice(0, OVERVIEW_PREVIEW_COUNT);
+  const hiddenCount = allServers.length - OVERVIEW_PREVIEW_COUNT;
 
   return (
     <div className="session-overview">
       <div className="overview-grid">
         {overview.skills.length > 0 && (
-          <div className="overview-section">
+          <div className="overview-section overview-section--groups">
             <h3 className="overview-section-title">Skills ({overview.skills.length})</h3>
-            <ul className="overview-list">
-              {overview.skills.map((skill) => (
-                <li key={skill.name} title={skill.description}>
-                  <span className="overview-name">{skill.name}</span>
-                  <span className="overview-size">{(skill.sizeBytes / 1024).toFixed(1)} kB</span>
-                </li>
+            <div className="overview-tools-group">
+              {visibleSkills.map((skill) => (
+                <div key={skill.name} className="overview-mcp-server" title={skill.description}>
+                  <span className="mcp-server-name">{skill.name}</span>
+                  <span className="mcp-tool-count">{(skill.sizeBytes / 1024).toFixed(1)} kB</span>
+                </div>
               ))}
-            </ul>
+              {!skillsExpanded && hiddenSkillsCount > 0 && (
+                <button className="overview-tools-expand" onClick={() => setSkillsExpanded(true)}>
+                  + {hiddenSkillsCount} more skills
+                </button>
+              )}
+              {skillsExpanded && overview.skills.length > OVERVIEW_PREVIEW_COUNT && (
+                <button className="overview-tools-expand" onClick={() => setSkillsExpanded(false)}>
+                  Show less
+                </button>
+              )}
+            </div>
           </div>
         )}
 
         {overview.agents.length > 0 && (
-          <div className="overview-section">
+          <div className="overview-section overview-section--groups">
             <h3 className="overview-section-title">Agents ({overview.agents.length})</h3>
-            <ul className="overview-list">
-              {overview.agents.map((agent) => (
-                <li key={agent.name} title={agent.description}>
-                  <span className="overview-name">{agent.name}</span>
-                </li>
+            <div className="overview-tools-group">
+              {visibleAgents.map((agent) => (
+                <div key={agent.name} className="overview-mcp-server" title={agent.description}>
+                  <span className="mcp-server-name">{agent.name}</span>
+                  <span className="mcp-tool-count">{(agent.sizeBytes / 1024).toFixed(1)} kB</span>
+                </div>
               ))}
-            </ul>
+              {!agentsExpanded && hiddenAgentsCount > 0 && (
+                <button className="overview-tools-expand" onClick={() => setAgentsExpanded(true)}>
+                  + {hiddenAgentsCount} more agents
+                </button>
+              )}
+              {agentsExpanded && overview.agents.length > OVERVIEW_PREVIEW_COUNT && (
+                <button className="overview-tools-expand" onClick={() => setAgentsExpanded(false)}>
+                  Show less
+                </button>
+              )}
+            </div>
           </div>
         )}
 
         {overview.tools.length > 0 && (
-          <div className="overview-section overview-section--tools">
+          <div className="overview-section overview-section--groups">
             <h3 className="overview-section-title">Tools ({overview.tools.length})</h3>
             <div className="overview-tools-group">
               {visibleServers.map((server) => {
@@ -834,7 +862,7 @@ function SessionOverviewPanel({ overview }: { overview: SessionOverview }) {
                   + {hiddenCount} more servers
                 </button>
               )}
-              {toolsExpanded && allServers.length > TOOLS_PREVIEW_COUNT && (
+              {toolsExpanded && allServers.length > OVERVIEW_PREVIEW_COUNT && (
                 <button className="overview-tools-expand" onClick={() => setToolsExpanded(false)}>
                   Show less
                 </button>
