@@ -77,6 +77,7 @@ export interface ToolInfo {
   name: string;
   description: string;
   isMcp: boolean;
+  deferred?: boolean;
   mcpServer?: string;
   sizeBytes: number;
 }

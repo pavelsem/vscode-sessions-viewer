@@ -79,6 +79,7 @@ interface ToolInfo {
   name: string;
   description: string;
   isMcp: boolean;
+  deferred?: boolean;
   mcpServer?: string;
   sizeBytes: number;
 }
@@ -920,6 +921,7 @@ function SessionOverviewPanel({ overview }: { overview: SessionOverview }) {
               {visibleServers.map((server) => {
                 if (server === '__builtin__') {
                   const builtinChars = builtinTools.reduce((s, t) => s + t.sizeBytes, 0);
+                  const builtinDeferred = builtinTools.filter((t) => t.deferred).length;
                   const expanded = expandedToolServers.has(server);
                   return (
                     <div key="__builtin__" className="overview-mcp-server-wrap">
@@ -933,14 +935,25 @@ function SessionOverviewPanel({ overview }: { overview: SessionOverview }) {
                           {expanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
                           <span className="mcp-server-name">Built-in</span>
                         </span>
-                        <span className="mcp-tool-count">{builtinTools.length} tools · {formatChars(builtinChars)}</span>
+                        <span className="mcp-tool-count">
+                          {builtinTools.length} tools{builtinDeferred > 0 ? ` · ${builtinDeferred} deferred` : ''} · {formatChars(builtinChars)}
+                        </span>
                       </button>
                       {expanded && (
                         <div className="overview-tool-list">
                           {builtinTools.map((tool) => (
-                            <div key={tool.name} className="overview-tool-item" title={tool.description}>
-                              <span className="overview-tool-name">{tool.name}</span>
-                              <span className="overview-tool-size">{formatChars(tool.sizeBytes)}</span>
+                            <div key={tool.name} className={`overview-tool-item${tool.deferred ? ' overview-tool-item--deferred' : ''}`} title={tool.description}>
+                              <span className="overview-tool-title">
+                                <span className="overview-tool-name">{tool.name}</span>
+                                {tool.deferred && (
+                                  <span className="overview-tool-deferred" title="Deferred tool">
+                                    <Clock3 size={11} aria-hidden="true" /> deferred
+                                  </span>
+                                )}
+                              </span>
+                              <span className="overview-tool-meta">
+                                <span className="overview-tool-size">{formatChars(tool.sizeBytes)}</span>
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -950,6 +963,7 @@ function SessionOverviewPanel({ overview }: { overview: SessionOverview }) {
                 }
                 const serverTools = mcpTools.filter((t) => (t.mcpServer ?? 'unknown') === server);
                 const count = serverTools.length;
+                const deferredCount = serverTools.filter((t) => t.deferred).length;
                 const serverChars = serverTools.reduce((s, t) => s + t.sizeBytes, 0);
                 const expanded = expandedToolServers.has(server);
                 return (
@@ -964,14 +978,25 @@ function SessionOverviewPanel({ overview }: { overview: SessionOverview }) {
                         {expanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
                         <span className="mcp-server-name">{server}</span>
                       </span>
-                      <span className="mcp-tool-count">{count} {count === 1 ? 'tool' : 'tools'} · {formatChars(serverChars)}</span>
+                      <span className="mcp-tool-count">
+                        {count} {count === 1 ? 'tool' : 'tools'}{deferredCount > 0 ? ` · ${deferredCount} deferred` : ''} · {formatChars(serverChars)}
+                      </span>
                     </button>
                     {expanded && (
                       <div className="overview-tool-list">
                         {serverTools.map((tool) => (
-                          <div key={tool.name} className="overview-tool-item" title={tool.description}>
-                            <span className="overview-tool-name">{tool.name}</span>
-                            <span className="overview-tool-size">{formatChars(tool.sizeBytes)}</span>
+                          <div key={tool.name} className={`overview-tool-item${tool.deferred ? ' overview-tool-item--deferred' : ''}`} title={tool.description}>
+                            <span className="overview-tool-title">
+                              <span className="overview-tool-name">{tool.name}</span>
+                              {tool.deferred && (
+                                <span className="overview-tool-deferred" title="Deferred tool">
+                                  <Clock3 size={11} aria-hidden="true" /> deferred
+                                </span>
+                              )}
+                            </span>
+                            <span className="overview-tool-meta">
+                              <span className="overview-tool-size">{formatChars(tool.sizeBytes)}</span>
+                            </span>
                           </div>
                         ))}
                       </div>

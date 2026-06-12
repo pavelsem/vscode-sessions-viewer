@@ -552,7 +552,26 @@ export class VsCodeTranscriptSource implements SessionSource {
 
     const skills: SkillInfo[] = [];
     const agents: AgentInfo[] = [];
-    const tools: ToolInfo[] = [];
+    const toolsByName = new Map<string, ToolInfo>();
+    const addTool = (tool: RawToolInfo) => {
+      const name = getToolName(tool);
+      if (!name) return;
+
+      const existing = toolsByName.get(name);
+      const isMcp = name.startsWith('mcp_');
+      const mcpServer = isMcp ? name.split('_').slice(1, -1).join('_') : undefined;
+      const description = getToolDescription(tool).slice(0, 120);
+      const deferred = isDeferredTool(tool);
+      const sizeBytes = JSON.stringify(tool).length;
+      toolsByName.set(name, {
+        name,
+        description: existing?.description || description,
+        isMcp,
+        deferred: existing?.deferred || deferred || undefined,
+        mcpServer,
+        sizeBytes: Math.max(existing?.sizeBytes ?? 0, sizeBytes)
+      });
+    };
     let systemPromptTotalBytes = 0;
     let systemPromptSkillsBytes = 0;
     let systemPromptAgentsBytes = 0;
@@ -595,19 +614,30 @@ export class VsCodeTranscriptSource implements SessionSource {
       try {
         const raw = await fs.readFile(toolsFile, 'utf8');
         const outer = JSON.parse(raw) as { content: string };
-        const toolsArray = JSON.parse(outer.content) as Array<{ name?: string; type?: string; description?: string }>;
+        const toolsArray = JSON.parse(outer.content) as RawToolInfo[];
         for (const t of toolsArray) {
-          const name = t.name ?? '';
-          if (!name) continue;
-          const isMcp = name.startsWith('mcp_');
-          const mcpServer = isMcp ? name.split('_').slice(1, -1).join('_') : undefined;
-          const sizeBytes = JSON.stringify(t).length;
-          tools.push({ name, description: (t.description ?? '').slice(0, 120), isMcp, mcpServer, sizeBytes });
+          addTool(t);
         }
       } catch {
         // ignore parse errors
       }
     }
+
+    try {
+      await this.consumeProviderRequestTools(path.join(dir, 'main.jsonl'), addTool);
+    } catch {
+      // ignore parse errors
+    }
+
+    const deferredToolNames = await this.collectAvailableDeferredToolNames(path.join(dir, 'main.jsonl'));
+    for (const name of deferredToolNames) {
+      const tool = toolsByName.get(name);
+      if (tool) {
+        toolsByName.set(name, { ...tool, deferred: true });
+      }
+    }
+
+    const tools = [...toolsByName.values()];
 
     const toolsBytesTotal = tools.reduce((s, t) => s + t.sizeBytes, 0);
     const userPromptBytes = session.firstUserMessage?.length ?? 0;
@@ -639,6 +669,83 @@ export class VsCodeTranscriptSource implements SessionSource {
     tools.sort((a, b) => b.sizeBytes - a.sizeBytes || a.name.localeCompare(b.name));
 
     return { skills, agents, tools, contextSizes };
+  }
+
+  private async consumeProviderRequestTools(filePath: string, onTool: (tool: RawToolInfo) => void): Promise<void> {
+    await this.readJsonl(filePath, (entry) => {
+      if (!entry || typeof entry !== 'object') return;
+      const record = entry as Record<string, unknown>;
+      if (record.type !== 'llm_request') return;
+
+      const attrs = this.asRecord(record.attrs);
+      for (const key of ['tools', 'request', 'requestBody', 'requestPayload', 'requestJson', 'requestJSON', 'providerRequest', 'apiRequest', 'rawRequest', 'body', 'requestOptions', 'requestShape', 'inputMessages']) {
+        this.consumeToolDefinitions(record[key], onTool);
+        this.consumeToolDefinitions(attrs[key], onTool);
+      }
+    });
+  }
+
+  private async collectAvailableDeferredToolNames(filePath: string): Promise<Set<string>> {
+    const names = new Set<string>();
+    await this.readJsonl(filePath, (entry) => {
+      if (!entry || typeof entry !== 'object') return;
+      const record = entry as Record<string, unknown>;
+      const attrs = this.asRecord(record.attrs);
+      for (const value of [...Object.values(record), ...Object.values(attrs)]) {
+        for (const name of extractAvailableDeferredToolNames(value)) {
+          names.add(name);
+        }
+      }
+    });
+    return names;
+  }
+
+  private consumeToolDefinitions(value: unknown, onTool: (tool: RawToolInfo) => void, depth = 0): void {
+    if (depth > 6) return;
+
+    if (typeof value === 'string') {
+      const parsed = parseJsonValue(value);
+      if (parsed !== undefined) {
+        this.consumeToolDefinitions(parsed, onTool, depth + 1);
+        return;
+      }
+
+      for (const tool of extractToolDefinitionsFromText(value)) {
+        onTool(tool);
+      }
+      return;
+    }
+
+    const parsed = parseJsonValue(value);
+    if (Array.isArray(parsed)) {
+      for (const item of parsed) {
+        if (item && typeof item === 'object') {
+          const tool = item as RawToolInfo;
+          if (getToolName(tool)) {
+            onTool(tool);
+          } else {
+            this.consumeToolDefinitions(item, onTool, depth + 1);
+          }
+        }
+      }
+      return;
+    }
+
+    if (!parsed || typeof parsed !== 'object') return;
+    const record = parsed as Record<string, unknown>;
+    const tools = record.tools;
+    if (!Array.isArray(tools)) {
+      for (const nested of Object.values(record)) {
+        this.consumeToolDefinitions(nested, onTool, depth + 1);
+      }
+      return;
+    }
+
+    for (const item of tools) {
+      if (item && typeof item === 'object') {
+        onTool(item as RawToolInfo);
+      }
+    }
   }
 
   private async parseTurns(filePath: string): Promise<TurnInfo[]> {
@@ -782,6 +889,166 @@ export class VsCodeTranscriptSource implements SessionSource {
 
     return turns;
   }
+}
+
+interface RawToolInfo {
+  name?: string;
+  type?: string;
+  description?: string;
+  defer_loading?: unknown;
+  deferred?: unknown;
+  isDeferred?: unknown;
+  function?: {
+    name?: string;
+    description?: string;
+  };
+  metadata?: {
+    defer_loading?: unknown;
+    deferred?: unknown;
+    isDeferred?: unknown;
+  };
+}
+
+function parseJsonValue(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return undefined;
+  }
+}
+
+function getToolName(tool: RawToolInfo): string {
+  return (tool.name ?? tool.function?.name ?? '').trim();
+}
+
+function getToolDescription(tool: RawToolInfo): string {
+  return tool.description ?? tool.function?.description ?? '';
+}
+
+function extractAvailableDeferredToolNames(value: unknown): string[] {
+  if (typeof value !== 'string') {
+    const parsed = parseJsonValue(value);
+    if (!parsed || typeof parsed !== 'object') return [];
+    return Object.values(parsed as Record<string, unknown>).flatMap(extractAvailableDeferredToolNames);
+  }
+
+  const text = value.replace(/\\r\\n|\\n|\\r/g, '\n');
+  const marker = 'Available deferred tools';
+  const markerIndex = text.indexOf(marker);
+  if (markerIndex < 0) return [];
+
+  const blockStart = text.indexOf(':', markerIndex);
+  if (blockStart < 0) return [];
+
+  const blockText = text.slice(blockStart + 1);
+  const names: string[] = [];
+  for (const rawLine of blockText.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) {
+      if (names.length > 0) break;
+      continue;
+    }
+    if (line.startsWith('<') || line.startsWith('{') || line.startsWith('[')) break;
+    if (/^[A-Za-z0-9_.-]+$/.test(line)) {
+      names.push(line);
+      continue;
+    }
+    if (names.length > 0) break;
+  }
+
+  return names;
+}
+
+function extractToolDefinitionsFromText(text: string): RawToolInfo[] {
+  if (!text.includes('defer_loading') || !text.includes('tools')) {
+    return [];
+  }
+
+  const tools: RawToolInfo[] = [];
+  const toolsKeyPattern = /"tools"\s*:\s*\[/g;
+  let match: RegExpExecArray | null;
+  while ((match = toolsKeyPattern.exec(text))) {
+    const arrayStart = text.indexOf('[', match.index);
+    const arrayEnd = findJsonArrayEnd(text, arrayStart);
+    if (arrayStart < 0 || arrayEnd < 0) continue;
+
+    try {
+      const parsed = JSON.parse(text.slice(arrayStart, arrayEnd + 1)) as unknown;
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (item && typeof item === 'object') {
+            tools.push(item as RawToolInfo);
+          }
+        }
+      }
+    } catch {
+      // ignore embedded non-JSON snippets
+    }
+
+    toolsKeyPattern.lastIndex = arrayEnd + 1;
+  }
+
+  return tools;
+}
+
+function findJsonArrayEnd(text: string, start: number): number {
+  if (start < 0 || text[start] !== '[') return -1;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+
+    if (char === '[') {
+      depth += 1;
+    } else if (char === ']') {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+
+  return -1;
+}
+
+function isDeferredTool(tool: RawToolInfo): boolean {
+  return (
+    isTruthyToolFlag(tool.defer_loading) ||
+    isTruthyToolFlag(tool.deferred) ||
+    isTruthyToolFlag(tool.isDeferred) ||
+    isTruthyToolFlag(tool.metadata?.defer_loading) ||
+    isTruthyToolFlag(tool.metadata?.deferred) ||
+    isTruthyToolFlag(tool.metadata?.isDeferred)
+  );
+}
+
+function isTruthyToolFlag(value: unknown): boolean {
+  return value === true || value === 'true';
 }
 
 function extractToolDetail(name: string, args: Record<string, unknown>): string | undefined {

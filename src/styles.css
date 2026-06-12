@@ -1478,6 +1478,17 @@ code {
   padding: 2px 0 2px 8px;
 }
 
+.overview-tool-item--deferred {
+  border-left-color: rgba(125, 211, 252, 0.45);
+}
+
+.overview-tool-title {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
 .overview-tool-name {
   overflow: hidden;
   font-size: 0.72rem;
@@ -1491,6 +1502,31 @@ code {
   font-size: 0.7rem;
   color: #777777;
   white-space: nowrap;
+}
+
+.overview-tool-meta {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.overview-tool-deferred {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  border-radius: 999px;
+  padding: 1px 5px;
+  background: rgba(125, 211, 252, 0.08);
+  color: #7dd3fc;
+  font-size: 0.66rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.overview-tool-deferred svg {
+  flex: 0 0 auto;
 }
 
 .overview-tools-expand {
