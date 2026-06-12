@@ -275,6 +275,7 @@ export default function App() {
   const selectedSession = filteredSessions.find((session) => session.id === selectedId) ?? filteredSessions[0];
   const selectedCost = selectedSession?.cost ?? { models: [] };
   const detailSession = sessions.find((s) => s.id === detailSessionId);
+  const filteredAiCredits = filteredSessions.reduce((sum, session) => sum + (session.cost.aiCredits ?? 0), 0);
   const refreshStatusText =
     status === 'loading'
       ? 'Loading'
@@ -385,12 +386,15 @@ export default function App() {
           <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} title="To date" />
         </label>
 
-        <div className="meta-strip">
-          <span>{filteredSessions.length} sessions</span>
+        <div className="meta-strip" aria-label="Filtered sessions summary">
+          <span className="meta-count">
+            <strong>{filteredSessions.length}</strong>
+            <span>sessions</span>
+          </span>
           <span className="meta-aic">
             <Coins size={13} aria-hidden="true" />
-            {formatAic(filteredSessions.reduce((sum, s) => sum + (s.cost.aiCredits ?? 0), 0))} AIC
-            <span className="meta-kc">({(filteredSessions.reduce((sum, s) => sum + (s.cost.aiCredits ?? 0), 0) / 4.8).toFixed(0)} Kč)</span>
+            <strong>{formatAic(filteredAiCredits)} AIC</strong>
+            <span className="meta-kc">({(filteredAiCredits / 4.8).toFixed(0)} Kč)</span>
           </span>
         </div>
       </section>
