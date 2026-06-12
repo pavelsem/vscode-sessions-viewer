@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowLeft, BarChart2, Bug, Calendar, CheckCircle2, ChevronDown, ChevronRight, Clock3, Coins, Database, Filter, Pencil, RefreshCw, Search } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Bug, Calendar, CheckCircle2, ChevronDown, ChevronRight, Clock3, Coins, Database, Filter, Pencil, RefreshCw, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 interface SourceFileInfo {
@@ -128,7 +128,6 @@ export default function App() {
   const [notesListOpen, setNotesListOpen] = useState(false);
   const [allNotesOpen, setAllNotesOpen] = useState(false);
   const [scrollToTurn, setScrollToTurn] = useState<number>();
-  const [currentView, setCurrentView] = useState<'sessions' | 'stats'>('sessions');
 
   async function loadSessions(showSpinner = false) {
     try {
@@ -300,14 +299,6 @@ export default function App() {
           <button type="button" className="icon-button" onClick={() => setAllNotesOpen(true)} title="Všechny poznámky">
             <Pencil size={18} aria-hidden="true" />
           </button>
-          <button
-            type="button"
-            className={`icon-button${currentView === 'stats' ? ' icon-button--active' : ''}`}
-            onClick={() => setCurrentView(currentView === 'stats' ? 'sessions' : 'stats')}
-            title="Statistiky"
-          >
-            <BarChart2 size={18} aria-hidden="true" />
-          </button>
           <button type="button" className="icon-button" onClick={() => void loadSessions(true)} title="Refresh sessions">
             <RefreshCw size={18} className={isRefreshing ? 'spin' : undefined} aria-hidden="true" />
           </button>
@@ -357,9 +348,6 @@ export default function App() {
 
       {allNotesOpen && <AllNotesModal sessions={sessions} onNavigate={navigateToTurn} onClose={() => setAllNotesOpen(false)} />}
 
-      {currentView === 'stats' ? (
-        <StatsView sessions={filteredSessions} />
-      ) : (
       <section className="content-grid">
         <div className="session-table" role="region" aria-label="Session list">
           {status === 'loading' ? <StateMessage title="Loading sessions" detail="Scanning local VS Code storage." /> : null}
@@ -454,70 +442,7 @@ export default function App() {
           )}
         </aside>
       </section>
-      )}
     </main>
-  );
-}
-
-const STATS_MIN_AIC = 0.1;
-
-function StatsView({ sessions }: { sessions: NormalizedSession[] }) {
-  const qualifying = sessions.filter((s) => (s.cost.aiCredits ?? 0) > STATS_MIN_AIC);
-  const count = qualifying.length;
-
-  const totalInput = qualifying.reduce((sum, s) => sum + (s.cost.inputTokens ?? 0), 0);
-  const totalCached = qualifying.reduce((sum, s) => sum + (s.cost.cachedTokens ?? 0), 0);
-  const totalOutput = qualifying.reduce((sum, s) => sum + (s.cost.outputTokens ?? 0), 0);
-  const totalAic = qualifying.reduce((sum, s) => sum + (s.cost.aiCredits ?? 0), 0);
-
-  const withInput = qualifying.filter((s) => s.cost.inputTokens !== undefined).length;
-  const withCached = qualifying.filter((s) => s.cost.cachedTokens !== undefined).length;
-  const withOutput = qualifying.filter((s) => s.cost.outputTokens !== undefined).length;
-  const withAic = qualifying.filter((s) => s.cost.aiCredits !== undefined).length;
-
-  const avgInput = withInput > 0 ? totalInput / withInput : 0;
-  const avgCached = withCached > 0 ? totalCached / withCached : 0;
-  const avgOutput = withOutput > 0 ? totalOutput / withOutput : 0;
-  const avgAic = withAic > 0 ? totalAic / withAic : 0;
-
-  return (
-    <div className="stats-view">
-      <div className="stats-header">
-        <BarChart2 size={18} aria-hidden="true" />
-        <span>Statistiky tokenů a nákladů</span>
-        <span className="stats-session-count">{count} sessions &gt; {STATS_MIN_AIC} AIC (z {sessions.length})</span>
-      </div>
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-card-label">Input tokeny</div>
-          <div className="stat-card-total">{formatNumber(totalInput)}</div>
-          <div className="stat-card-sub">celkem</div>
-          <div className="stat-card-avg">{formatNumber(Math.round(avgInput))}</div>
-          <div className="stat-card-sub">průměr / session ({withInput})</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-label">Cache tokeny</div>
-          <div className="stat-card-total">{formatNumber(totalCached)}</div>
-          <div className="stat-card-sub">celkem</div>
-          <div className="stat-card-avg">{formatNumber(Math.round(avgCached))}</div>
-          <div className="stat-card-sub">průměr / session ({withCached})</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-label">Output tokeny</div>
-          <div className="stat-card-total">{formatNumber(totalOutput)}</div>
-          <div className="stat-card-sub">celkem</div>
-          <div className="stat-card-avg">{formatNumber(Math.round(avgOutput))}</div>
-          <div className="stat-card-sub">průměr / session ({withOutput})</div>
-        </div>
-        <div className="stat-card stat-card--aic">
-          <div className="stat-card-label">AIC náklady</div>
-          <div className="stat-card-total">{formatAic(totalAic)} <span className="stat-aic-unit">AIC</span></div>
-          <div className="stat-card-sub">{(totalAic / 4.8).toFixed(0)} Kč celkem</div>
-          <div className="stat-card-avg">{formatAic(avgAic)} <span className="stat-aic-unit">AIC</span></div>
-          <div className="stat-card-sub">{(avgAic / 4.8).toFixed(2)} Kč průměr / session ({withAic})</div>
-        </div>
-      </div>
-    </div>
   );
 }
 
