@@ -1163,6 +1163,96 @@ code {
   vertical-align: middle;
 }
 
+.tool-token-analysis {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  margin-bottom: 18px;
+  padding: 16px 20px;
+}
+
+.tool-token-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.tool-token-header h3 {
+  margin: 0 0 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #999999;
+}
+
+.tool-token-header p {
+  margin: 0;
+  color: #777777;
+  font-size: 0.78rem;
+}
+
+.tool-token-total {
+  color: #e3a07e;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tool-token-total span {
+  display: block;
+  color: #888888;
+  font-size: 0.74rem;
+  font-weight: 400;
+  margin-top: 3px;
+}
+
+.tool-token-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tool-token-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) repeat(4, minmax(72px, max-content));
+  gap: 12px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 5px 10px;
+  color: #cccccc;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.tool-token-row--head {
+  background: none;
+  border-color: transparent;
+  color: #777777;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tool-token-row span:not(:first-child) {
+  text-align: right;
+}
+
+.tool-token-name {
+  color: #e3a07e;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .state-message svg {
   color: #e3a07e;
 }

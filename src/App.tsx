@@ -37,6 +37,8 @@ interface NormalizedSession {
 interface ToolCallInfo {
   name: string;
   detail?: string;
+  inputChars: number;
+  outputChars: number;
 }
 
 interface TurnInfo {
@@ -99,6 +101,13 @@ interface SessionOverview {
 }
 
 type LoadState = 'loading' | 'ready' | 'error';
+
+function formatChars(value: number) {
+  const formatted = new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: value < 100 ? 2 : value < 10_000 ? 1 : 0
+  }).format(value / 1000);
+  return `${formatted} kC`;
+}
 
 export default function App() {
   const [sessions, setSessions] = useState<NormalizedSession[]>([]);
@@ -257,11 +266,14 @@ export default function App() {
           ) : turns && turns.length === 0 ? (
             <StateMessage title="No turns found" detail="This session has no debug log or no user messages were recorded." />
           ) : turns ? (
-            <div className="turns-list">
-              {turns.map((turn) => (
-                <TurnCard key={turn.index} turn={turn} sessionId={detailSessionId} />
-              ))}
-            </div>
+            <>
+              <ToolTokenAnalysis turns={turns} />
+              <div className="turns-list">
+                {turns.map((turn) => (
+                  <TurnCard key={turn.index} turn={turn} sessionId={detailSessionId} />
+                ))}
+              </div>
+            </>
           ) : null}
         </section>
       </main>
@@ -643,6 +655,62 @@ function TurnCard({ turn, sessionId }: { turn: TurnInfo; sessionId?: string }) {
   );
 }
 
+function ToolTokenAnalysis({ turns }: { turns: TurnInfo[] }) {
+  const rows = useMemo(() => {
+    const map = new Map<string, { name: string; calls: number; input: number; output: number }>();
+    for (const turn of turns) {
+      for (const tool of turn.toolCalls) {
+        const current = map.get(tool.name) ?? { name: tool.name, calls: 0, input: 0, output: 0 };
+        current.calls += 1;
+        current.input += tool.inputChars;
+        current.output += tool.outputChars;
+        map.set(tool.name, current);
+      }
+    }
+    return [...map.values()].sort((a, b) => (b.input + b.output) - (a.input + a.output) || a.name.localeCompare(b.name));
+  }, [turns]);
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const totalInput = rows.reduce((sum, row) => sum + row.input, 0);
+  const totalOutput = rows.reduce((sum, row) => sum + row.output, 0);
+
+  return (
+    <div className="tool-token-analysis">
+      <div className="tool-token-header">
+        <div>
+          <h3>Tool Usage</h3>
+          <p>Velikost payloadu volání a výsledků nástrojů v debug logu.</p>
+        </div>
+        <div className="tool-token-total">
+          {formatChars(totalInput + totalOutput)} total
+          <span>{formatChars(totalInput)} in / {formatChars(totalOutput)} out</span>
+        </div>
+      </div>
+      <div className="tool-token-table">
+        <div className="tool-token-row tool-token-row--head">
+          <span>Tool</span>
+          <span>Calls</span>
+          <span>Input</span>
+          <span>Output</span>
+          <span>Total</span>
+        </div>
+        {rows.map((row) => (
+          <div key={row.name} className="tool-token-row">
+            <span className="tool-token-name">{row.name}</span>
+            <span>{formatNumber(row.calls)}</span>
+            <span title={`${formatNumber(row.input)} C`}>{formatChars(row.input)}</span>
+            <span title={`${formatNumber(row.output)} C`}>{formatChars(row.output)}</span>
+            <span title={`${formatNumber(row.input + row.output)} C`}>{formatChars(row.input + row.output)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AllNotesModal({ sessions, onNavigate, onClose }: { sessions: NormalizedSession[]; onNavigate: (sessionId: string, turnIndex: number) => void; onClose: () => void }) {
   const allNotes = useMemo(() => {
     const result: { sessionId: string; workspaceName: string; updatedAt: string; turnIndex: number; note: TurnNote }[] = [];
@@ -792,7 +860,7 @@ function SessionOverviewPanel({ overview }: { overview: SessionOverview }) {
               {visibleSkills.map((skill) => (
                 <div key={skill.name} className="overview-mcp-server" title={skill.description}>
                   <span className="mcp-server-name">{skill.name}</span>
-                  <span className="mcp-tool-count">{(skill.sizeBytes / 1024).toFixed(1)} kB</span>
+                  <span className="mcp-tool-count">{formatChars(skill.sizeBytes)}</span>
                 </div>
               ))}
               {!skillsExpanded && hiddenSkillsCount > 0 && (
@@ -816,7 +884,7 @@ function SessionOverviewPanel({ overview }: { overview: SessionOverview }) {
               {visibleAgents.map((agent) => (
                 <div key={agent.name} className="overview-mcp-server" title={agent.description}>
                   <span className="mcp-server-name">{agent.name}</span>
-                  <span className="mcp-tool-count">{(agent.sizeBytes / 1024).toFixed(1)} kB</span>
+                  <span className="mcp-tool-count">{formatChars(agent.sizeBytes)}</span>
                 </div>
               ))}
               {!agentsExpanded && hiddenAgentsCount > 0 && (
@@ -839,21 +907,21 @@ function SessionOverviewPanel({ overview }: { overview: SessionOverview }) {
             <div className="overview-tools-group">
               {visibleServers.map((server) => {
                 if (server === '__builtin__') {
-                  const builtinKb = (builtinTools.reduce((s, t) => s + t.sizeBytes, 0) / 1024).toFixed(1);
+                  const builtinChars = builtinTools.reduce((s, t) => s + t.sizeBytes, 0);
                   return (
                     <div key="__builtin__" className="overview-mcp-server overview-mcp-server--builtin">
                       <span className="mcp-server-name">Built-in</span>
-                      <span className="mcp-tool-count">{builtinTools.length} tools · {builtinKb} kB</span>
+                      <span className="mcp-tool-count">{builtinTools.length} tools · {formatChars(builtinChars)}</span>
                     </div>
                   );
                 }
                 const serverTools = mcpTools.filter((t) => (t.mcpServer ?? 'unknown') === server);
                 const count = serverTools.length;
-                const serverKb = (serverTools.reduce((s, t) => s + t.sizeBytes, 0) / 1024).toFixed(1);
+                const serverChars = serverTools.reduce((s, t) => s + t.sizeBytes, 0);
                 return (
                   <div key={server} className="overview-mcp-server">
                     <span className="mcp-server-name">{server}</span>
-                    <span className="mcp-tool-count">{count} {count === 1 ? 'tool' : 'tools'} · {serverKb} kB</span>
+                    <span className="mcp-tool-count">{count} {count === 1 ? 'tool' : 'tools'} · {formatChars(serverChars)}</span>
                   </div>
                 );
               })}
@@ -877,40 +945,37 @@ function SessionOverviewPanel({ overview }: { overview: SessionOverview }) {
 }
 
 function ContextWindowBar({ sizes }: { sizes: ContextSizes }) {
-  const toKb = (b: number) => b / 1024;
-  const fmtKb = (kb: number) => kb >= 1 ? `${kb.toFixed(1)} kB` : `${(kb * 1024).toFixed(0)} B`;
-
-  const skillsKb = toKb(sizes.systemPromptSkillsBytes);
-  const agentsKb = toKb(sizes.systemPromptAgentsBytes);
-  const otherKb = Math.max(0, toKb(sizes.systemPromptTotalBytes) - skillsKb - agentsKb);
-  const toolsKb = toKb(sizes.toolsBytes);
-  const userKb = toKb(sizes.userPromptBytes);
-  const totalKb = toKb(sizes.systemPromptTotalBytes) + toolsKb + userKb;
+  const skillsChars = sizes.systemPromptSkillsBytes;
+  const agentsChars = sizes.systemPromptAgentsBytes;
+  const otherChars = Math.max(0, sizes.systemPromptTotalBytes - skillsChars - agentsChars);
+  const toolsChars = sizes.toolsBytes;
+  const userChars = sizes.userPromptBytes;
+  const totalChars = sizes.systemPromptTotalBytes + toolsChars + userChars;
 
   const segments = [
-    { key: 'other', kb: otherKb, label: 'Instructions', className: 'ctx-seg--other' },
-    { key: 'skills', kb: skillsKb, label: 'Skills', className: 'ctx-seg--skills' },
-    { key: 'agents', kb: agentsKb, label: 'Agents', className: 'ctx-seg--agents' },
-    { key: 'tools', kb: toolsKb, label: 'Tools', className: 'ctx-seg--tools' },
-    { key: 'user', kb: userKb, label: 'User prompt', className: 'ctx-seg--user' },
-  ].filter((s) => s.kb > 0);
+    { key: 'other', chars: otherChars, label: 'Instructions', className: 'ctx-seg--other' },
+    { key: 'skills', chars: skillsChars, label: 'Skills', className: 'ctx-seg--skills' },
+    { key: 'agents', chars: agentsChars, label: 'Agents', className: 'ctx-seg--agents' },
+    { key: 'tools', chars: toolsChars, label: 'Tools', className: 'ctx-seg--tools' },
+    { key: 'user', chars: userChars, label: 'User prompt', className: 'ctx-seg--user' },
+  ].filter((s) => s.chars > 0);
 
-  const pct = (kb: number) => totalKb > 0 ? Math.min(100, (kb / totalKb) * 100).toFixed(3) : '0';
+  const pct = (chars: number) => totalChars > 0 ? Math.min(100, (chars / totalChars) * 100).toFixed(3) : '0';
 
   return (
     <div className="ctx-window">
       <div className="ctx-window-header">
         <span className="ctx-window-label">Context window</span>
         {sizes.model && <span className="ctx-window-model">{sizes.model}</span>}
-        <span className="ctx-window-usage">{fmtKb(totalKb)} total</span>
+        <span className="ctx-window-usage">{formatChars(totalChars)} total</span>
       </div>
-      <div className="ctx-bar" role="img" aria-label={`Context window: ${fmtKb(totalKb)}`}>
+      <div className="ctx-bar" role="img" aria-label={`Context window: ${formatChars(totalChars)}`}>
         {segments.map((seg) => (
           <div
             key={seg.key}
             className={`ctx-seg ${seg.className}`}
-            style={{ width: `${pct(seg.kb)}%` }}
-            title={`${seg.label}: ${fmtKb(seg.kb)}`}
+            style={{ width: `${pct(seg.chars)}%` }}
+            title={`${seg.label}: ${formatChars(seg.chars)}`}
           />
         ))}
       </div>
@@ -918,7 +983,7 @@ function ContextWindowBar({ sizes }: { sizes: ContextSizes }) {
         {segments.map((seg) => (
           <span key={seg.key} className={`ctx-legend-item ctx-legend-item--${seg.key}`}>
             <span className="ctx-legend-dot" />
-            {seg.label} <span className="ctx-legend-val">{fmtKb(seg.kb)}</span>
+            {seg.label} <span className="ctx-legend-val">{formatChars(seg.chars)}</span>
           </span>
         ))}
       </div>

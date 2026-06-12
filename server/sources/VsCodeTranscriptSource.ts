@@ -662,6 +662,8 @@ export class VsCodeTranscriptSource implements SessionSource {
       parentSpanId: string;
       name: string;
       args: Record<string, unknown>;
+      inputChars: number;
+      outputChars: number;
     }
 
     const userMessages: UserMsg[] = [];
@@ -702,12 +704,19 @@ export class VsCodeTranscriptSource implements SessionSource {
       if (type === 'tool_call' && parentSpanId) {
         const name = typeof rec.name === 'string' ? rec.name : undefined;
         if (name) {
+          const argsRaw = serializeUnknown(attrs.args ?? {});
+          const resultRaw = serializeUnknown(attrs.result ?? '');
           let args: Record<string, unknown> = {};
           try {
-            const argsRaw = typeof attrs.args === 'string' ? attrs.args : JSON.stringify(attrs.args ?? '{}');
             args = JSON.parse(argsRaw) as Record<string, unknown>;
           } catch { /* ignore */ }
-          toolCalls.push({ parentSpanId, name, args });
+          toolCalls.push({
+            parentSpanId,
+            name,
+            args,
+            inputChars: resultRaw.length,
+            outputChars: argsRaw.length
+          });
         }
       }
 
@@ -733,7 +742,12 @@ export class VsCodeTranscriptSource implements SessionSource {
     const toolsByParent = new Map<string, ToolCallInfo[]>();
     for (const tc of toolCalls) {
       const list = toolsByParent.get(tc.parentSpanId) ?? [];
-      list.push({ name: tc.name, detail: extractToolDetail(tc.name, tc.args) });
+      list.push({
+        name: tc.name,
+        detail: extractToolDetail(tc.name, tc.args),
+        inputChars: tc.inputChars,
+        outputChars: tc.outputChars
+      });
       toolsByParent.set(tc.parentSpanId, list);
     }
 
@@ -812,6 +826,15 @@ function extractToolDetail(name: string, args: Record<string, unknown>): string 
       return str('operation') ?? (args['todoList'] ? 'write' : undefined);
     default:
       return undefined;
+  }
+}
+
+function serializeUnknown(value: unknown): string {
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value ?? '');
+  } catch {
+    return String(value ?? '');
   }
 }
 

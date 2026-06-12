@@ -42,6 +42,8 @@ export interface SessionSourceSnapshot {
 export interface ToolCallInfo {
   name: string;
   detail?: string;
+  inputChars: number;
+  outputChars: number;
 }
 
 export interface TurnInfo {
