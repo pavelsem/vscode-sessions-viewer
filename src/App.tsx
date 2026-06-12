@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowLeft, BarChart2, Bug, Calendar, CheckCircle2, Clock3, Coins, Database, Filter, Pencil, RefreshCw, Search } from 'lucide-react';
+import { AlertCircle, ArrowLeft, BarChart2, Bug, Calendar, CheckCircle2, ChevronDown, ChevronRight, Clock3, Coins, Database, Filter, Pencil, RefreshCw, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 interface SourceFileInfo {
@@ -833,6 +833,7 @@ function SessionOverviewPanel({ overview }: { overview: SessionOverview }) {
   const [skillsExpanded, setSkillsExpanded] = useState(false);
   const [agentsExpanded, setAgentsExpanded] = useState(false);
   const [toolsExpanded, setToolsExpanded] = useState(false);
+  const [expandedToolServers, setExpandedToolServers] = useState<Set<string>>(new Set());
   const visibleSkills = skillsExpanded ? overview.skills : overview.skills.slice(0, OVERVIEW_PREVIEW_COUNT);
   const hiddenSkillsCount = overview.skills.length - OVERVIEW_PREVIEW_COUNT;
   const visibleAgents = agentsExpanded ? overview.agents : overview.agents.slice(0, OVERVIEW_PREVIEW_COUNT);
@@ -849,6 +850,17 @@ function SessionOverviewPanel({ overview }: { overview: SessionOverview }) {
   );
   const visibleServers = toolsExpanded ? allServers : allServers.slice(0, OVERVIEW_PREVIEW_COUNT);
   const hiddenCount = allServers.length - OVERVIEW_PREVIEW_COUNT;
+  const toggleToolServer = (server: string) => {
+    setExpandedToolServers((current) => {
+      const next = new Set(current);
+      if (next.has(server)) {
+        next.delete(server);
+      } else {
+        next.add(server);
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="session-overview">
@@ -908,20 +920,62 @@ function SessionOverviewPanel({ overview }: { overview: SessionOverview }) {
               {visibleServers.map((server) => {
                 if (server === '__builtin__') {
                   const builtinChars = builtinTools.reduce((s, t) => s + t.sizeBytes, 0);
+                  const expanded = expandedToolServers.has(server);
                   return (
-                    <div key="__builtin__" className="overview-mcp-server overview-mcp-server--builtin">
-                      <span className="mcp-server-name">Built-in</span>
-                      <span className="mcp-tool-count">{builtinTools.length} tools · {formatChars(builtinChars)}</span>
+                    <div key="__builtin__" className="overview-mcp-server-wrap">
+                      <button
+                        className="overview-mcp-server overview-mcp-server--builtin"
+                        type="button"
+                        aria-expanded={expanded}
+                        onClick={() => toggleToolServer(server)}
+                      >
+                        <span className="mcp-server-title">
+                          {expanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+                          <span className="mcp-server-name">Built-in</span>
+                        </span>
+                        <span className="mcp-tool-count">{builtinTools.length} tools · {formatChars(builtinChars)}</span>
+                      </button>
+                      {expanded && (
+                        <div className="overview-tool-list">
+                          {builtinTools.map((tool) => (
+                            <div key={tool.name} className="overview-tool-item" title={tool.description}>
+                              <span className="overview-tool-name">{tool.name}</span>
+                              <span className="overview-tool-size">{formatChars(tool.sizeBytes)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 }
                 const serverTools = mcpTools.filter((t) => (t.mcpServer ?? 'unknown') === server);
                 const count = serverTools.length;
                 const serverChars = serverTools.reduce((s, t) => s + t.sizeBytes, 0);
+                const expanded = expandedToolServers.has(server);
                 return (
-                  <div key={server} className="overview-mcp-server">
-                    <span className="mcp-server-name">{server}</span>
-                    <span className="mcp-tool-count">{count} {count === 1 ? 'tool' : 'tools'} · {formatChars(serverChars)}</span>
+                  <div key={server} className="overview-mcp-server-wrap">
+                    <button
+                      className="overview-mcp-server"
+                      type="button"
+                      aria-expanded={expanded}
+                      onClick={() => toggleToolServer(server)}
+                    >
+                      <span className="mcp-server-title">
+                        {expanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+                        <span className="mcp-server-name">{server}</span>
+                      </span>
+                      <span className="mcp-tool-count">{count} {count === 1 ? 'tool' : 'tools'} · {formatChars(serverChars)}</span>
+                    </button>
+                    {expanded && (
+                      <div className="overview-tool-list">
+                        {serverTools.map((tool) => (
+                          <div key={tool.name} className="overview-tool-item" title={tool.description}>
+                            <span className="overview-tool-name">{tool.name}</span>
+                            <span className="overview-tool-size">{formatChars(tool.sizeBytes)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}

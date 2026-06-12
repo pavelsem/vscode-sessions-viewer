@@ -1392,8 +1392,15 @@ code {
   gap: 6px;
 }
 
+.overview-mcp-server-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .overview-mcp-server {
   display: flex;
+  width: 100%;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -1401,6 +1408,33 @@ code {
   border: 1px solid rgba(227, 160, 126, 0.18);
   border-radius: 6px;
   padding: 4px 10px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.overview-mcp-server:hover {
+  background: rgba(227, 160, 126, 0.12);
+  border-color: rgba(227, 160, 126, 0.32);
+}
+
+.overview-mcp-server--builtin:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.mcp-server-title {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.mcp-server-title svg {
+  flex: 0 0 auto;
+  color: #999999;
 }
 
 .overview-mcp-server--builtin {
@@ -1409,9 +1443,12 @@ code {
 }
 
 .mcp-server-name {
+  overflow: hidden;
   font-size: 0.78rem;
   color: #E3A07E;
   font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .overview-mcp-server--builtin .mcp-server-name {
@@ -1419,8 +1456,41 @@ code {
 }
 
 .mcp-tool-count {
+  flex: 0 0 auto;
   font-size: 0.75rem;
   color: #999999;
+  white-space: nowrap;
+}
+
+.overview-tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 19px;
+}
+
+.overview-tool-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 2px 0 2px 8px;
+}
+
+.overview-tool-name {
+  overflow: hidden;
+  font-size: 0.72rem;
+  color: #cccccc;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-tool-size {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  color: #777777;
+  white-space: nowrap;
 }
 
 .overview-tools-expand {
