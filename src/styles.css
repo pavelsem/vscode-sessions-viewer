@@ -409,8 +409,9 @@ dd {
 }
 
 .path-stack {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .cost-panel {
@@ -476,30 +477,31 @@ dd {
   padding-left: 8px;
 }
 
-.path-line {
-  display: grid;
-  gap: 6px;
-}
-
-.path-line span {
-  color: #999999;
-  font-size: 0.82rem;
-}
-
 .path-link {
-  text-decoration: none;
-  min-width: 0;
-  display: block;
-  overflow: hidden;
-}
-
-.path-link code {
-  transition: background 0.15s, color 0.15s;
-}
-
-.path-link:hover code {
-  background: rgba(227, 160, 126, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid rgba(227, 160, 126, 0.22);
+  border-radius: 10px;
+  background: rgba(227, 160, 126, 0.08);
   color: #E3A07E;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.path-link:hover {
+  background: rgba(227, 160, 126, 0.14);
+  border-color: rgba(227, 160, 126, 0.42);
+  color: #F0B091;
+}
+
+.path-link svg {
+  flex: 0 0 auto;
 }
 
 code {

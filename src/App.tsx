@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowLeft, Bug, Calendar, CheckCircle2, ChevronDown, ChevronRight, Clock3, Coins, Database, Filter, Pencil, RefreshCw, Search } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Bug, Calendar, CheckCircle2, ChevronDown, ChevronRight, Clock3, Coins, Database, ExternalLink, Filter, Pencil, RefreshCw, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 interface SourceFileInfo {
@@ -1052,12 +1052,10 @@ function ContextWindowBar({ sizes }: { sizes: ContextSizes }) {
 
 function PathLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="path-line">
+    <a href={`vscode://file/${encodeURI(value)}`} title={value} className="path-link" aria-label={`Open ${label}`}>
+      <ExternalLink size={15} aria-hidden="true" />
       <span>{label}</span>
-      <a href={`vscode://file/${encodeURI(value)}`} title={value} className="path-link">
-        <code>{value}</code>
-      </a>
-    </div>
+    </a>
   );
 }
 
